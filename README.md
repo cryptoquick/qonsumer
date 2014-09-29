@@ -1,4 +1,4 @@
-qonsume is a nodejs api consumer. it is not meant for realtime apps; instead, it is meant for static consumption of api data. it will write the results of endpoint responses to files for processing by other applications. although it can consume restful interfaces, its only http activity is an http 'get'.
+qonsume is a nodejs api consumer. it is not meant for realtime apps; instead, it is meant for static consumption of api data. it will write the results of endpoint responses to files for processing by other applications. although it can consume restful interfaces, its only http activity is an http `get`.
 
 qonsume can consume the following:
 
@@ -16,5 +16,6 @@ qonsume is in early development stages, and its documentation is still in develo
 
 # problem?
 
-if you see the error: `Error: One of the nodes does not exist`:
+if you see the error: `Error: One of the nodes does not exist`
+
 routes that depend on other routes should be defined after the other routes have been defined.

@@ -9,7 +9,7 @@ env:
 cmd:
   livehost: host
 
-# describe hosts, and their routes, and route dependencies
+# describe hosts, and their resources, and resource dependencies
 hosts:
   stub:
     files: test/stub/
