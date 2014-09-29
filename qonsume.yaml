@@ -12,13 +12,13 @@ cmd:
 # describe hosts, and their resources, and resource dependencies
 hosts:
   stub:
-    files: test/stub/
+    local: test/stub/
 
     res:
-      special_users: special_user_ids.yaml
+      special_user_ids: special_user_ids.yaml
 
   live:
-    host: (cmd livehost)
+    host: localhost
     port: 3030
     params:
       -
@@ -26,9 +26,10 @@ hosts:
 
     res:
       articles: /articles
-      comments: /article/(articles articles.id)/comments
-      comments_on_articles: /article/(articles id)/comment/(comments comment.id)
-      users: /user/(comments_on_articles user.id)
+      comments: /article/(articles|.articles .id)/comments
+      comments_on_articles: /article/(articles|.articles .id)/comment/(comments|.comment .id)
+      users: /user/(comments_on_articles|.user .id)
+      special_users: /user/(special_user_ids|.users number)
 
 extract:
-  user_names.json: (users user.name)
+  user_names.json: (users|.user .name)
