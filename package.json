@@ -1,0 +1,33 @@
+{
+  "name": "qonsume",
+  "version": "0.0.0",
+  "description": "a consumer of APIs to static files according to rulesets",
+  "main": "lib/index.js",
+  "author": "Hunter Trujillo <cryptoquick@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/cryptoquick/qonsume.git"
+  },
+  "dependencies": {
+    "JSONSelect": "^0.4.0",
+    "commander": "^2.3.0",
+    "dependency-graph": "^0.1.0",
+    "js-yaml": "^3.2.2",
+    "mkdirp": "^0.5.0",
+    "request": "^2.44.0"
+  },
+  "devDependencies": {
+    "grunt": "^0.4.5",
+    "grunt-chmod": "^1.0.3",
+    "grunt-contrib-coffee": "^0.11.1",
+    "grunt-contrib-concat": "^0.5.0",
+    "grunt-contrib-watch": "^0.6.1",
+    "grunt-file-append": "0.0.5",
+    "grunt-mocha-test": "^0.12.0",
+    "mocha": "^1.21.4"
+  },
+  "scripts": {
+    "prepublish": "grunt build"
+  }
+}

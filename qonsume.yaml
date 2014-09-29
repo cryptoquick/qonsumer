@@ -1,0 +1,32 @@
+---
+# an example qonsume.yaml
+
+# provides authentication key use in query
+env:
+  authkey: STATIC_AUTHKEY
+
+# to switch production or staging from the command line usign the --host parameter
+cmd:
+  livehost: host
+
+# describe hosts, and their routes, and route dependencies
+hosts:
+  stub:
+    files: test/stub/
+
+    res:
+      special_users: special_user_ids.yaml
+
+  live:
+    host: (cmd livehost)
+    port: 3030
+    params:
+      -
+        auth: (env authkey)
+
+    res:
+      index: /index
+      articles: /article/(index id)
+      comments: /article/(articles id)/comments
+      users_on_articles: /article/(articles id)/comments/(comments id)/user
+      users: /user/(users_on_articles id)
