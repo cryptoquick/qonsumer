@@ -1,0 +1,20 @@
+-
+  request:
+    url: ^/articles$
+  response:
+    file: articles/articles.json
+-
+  request:
+    url: ^/article/(\d)/comments$
+  response:
+    file: article/<% url[1] %>/comments.json
+-
+  request:
+    url: ^/article/(\d)/comment/(\d)
+  response:
+    file: article/<% url[1] %>/comment/<% url[2] %>.json
+-
+  request:
+    url: ^/user/([\d]+)$
+  response:
+    file: user/<% url[1] %>.json

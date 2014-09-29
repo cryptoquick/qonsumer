@@ -34,6 +34,16 @@ module.exports = (grunt) ->
           spawn: no
           atBegin: yes
 
+    stubby:
+      server:
+        options:
+          stubs: 3030
+          persistent: yes
+          relativeFilesPath: yes
+        files: [
+          src: 'test/live/endpoints.yaml'
+        ]
+
   grunt.initConfig config
 
   grunt.loadNpmTasks task for task of config.pkg.devDependencies when task.indexOf 'grunt-' >= 0
@@ -43,3 +53,5 @@ module.exports = (grunt) ->
     'file_append'
     'chmod'
   ]
+
+  grunt.registerTask 'server', ['stubby']

@@ -25,8 +25,10 @@ hosts:
         auth: (env authkey)
 
     res:
-      index: /index
-      articles: /article/(index id)
-      comments: /article/(articles id)/comments
-      users_on_articles: /article/(articles id)/comments/(comments id)/user
-      users: /user/(users_on_articles id)
+      articles: /articles
+      comments: /article/(articles articles.id)/comments
+      comments_on_articles: /article/(articles id)/comment/(comments comment.id)
+      users: /user/(comments_on_articles user.id)
+
+extract:
+  user_names.json: (users user.name)
