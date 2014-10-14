@@ -27,7 +27,7 @@ hosts:
     res:
       articles: /articles
       comments: /article/(articles|.articles .id)/comments
-      comments_on_articles: /article/(articles|.articles .id)/comment/(comments|.comment .id)
+      comments_on_articles: /article/(articles|.articles .id)/comment/(comments|.comments .id)
       users: /user/(comments_on_articles|.user .id)
       special_users: /user/(special_user_ids|.users number)
 

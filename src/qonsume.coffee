@@ -1,30 +1,36 @@
+fs = require 'fs'
+path = require 'path'
 mkdirp = require 'mkdirp'
 yaml = require 'js-yaml'
-fs = require 'fs'
 select = require 'JSONSelect'
 request = require 'request'
 async = require 'async'
+_ = require 'lodash'
+_.mixin require 'lodash-deep'
 yaml = require 'js-yaml'
+traverse = require 'traverse'
 
 module.exports =
   config:
     # defaults
-    file: './qonsume.yaml'
-    dir: './results'
+    file: 'qonsume.yaml'
+    dir: 'results/data.json'
+    max: 4 # hardcoded hard limit on number of parallel connections
 
   global:
     res: {} # resources
     deps: {} # for async auto
     results: {}
-    deps: {}
+    trees: {}
 
   init: (program) ->
     # configure
     @config.file = program.config? or program.args[0]? or @config.file
     @config.dir = program.results? or program.args[1]? or @config.dir
 
+    # TODO detect if files are present
     if @config.file and @config.dir
-      mkdirp @config.dir, (err) =>
+      mkdirp path.dirname(@config.dir), (err) =>
         if err
           console.error err
         else
@@ -48,27 +54,70 @@ module.exports =
     catch e
       console.error e
 
+  lexer: (template) ->
+    matches = template.match /\(.*?\)/g
+    results = {}
+    resources = []
+    keys = []
+
+    if matches
+      for pattern in matches
+        str = pattern.substring(1, pattern.length - 1)
+        spl = str.split('|')
+        resource = spl[0]
+        selector = spl[1]
+        results[resource] = { resource, selector, pattern }
+        resources.push results[resource]
+        keys.push resource
+
+    results._keys = keys
+    results._resources = resources
+    results._count = resources.length
+
+    results
+
+  render: (template, data, tree, selectors, deps, property_path) ->
+    head = selectors.shift()
+    tail = selectors
+
+    unless head
+      urls = []
+      traverse(tree).forEach (val) ->
+        if @isLeaf and (@level is property_path.length * 2 + 1) # ids
+          url = template
+          for i in [0...Math.floor(@path.length / 2)]
+            inner_parent_key = @path[i * 2]
+            pattern = deps[inner_parent_key].pattern
+            path = @path.slice(0, (i + 1) * 2)
+            path.push 'id'
+            id = _.deepGet tree, path
+            url = url.replace pattern, id
+          urls.push url
+        val
+      _.uniq urls
+    else
+      traverse(data[head.resource]).forEach (val) -> # TODO use JSON selector
+        if @isLeaf
+          path = _.clone property_path
+          parent_key = @parent?.parent?.parent?.key
+          if (parent_key isnt undefined) and property_path.length # mustn't be root node
+            path.push parseInt parent_key, 10
+          path.push head.resource
+          arr = _.deepGet(tree, path) or []
+          arr.push
+            id: val
+          _.deepSet tree, path, arr
+        val
+      property_path.push head.resource
+      @render template, data, tree, tail, deps, property_path
+
   make_res: ->
     for host_name, host of @doc.hosts
       for res_name, res_path of host.res
-        deps = res_path.match(/\(.*?\)/g)
-        if deps
-          formatted_deps = [dep.substring(1, dep.length - 1).split('|')[0] for dep in deps][0]
-          selectors_obj = deps.reduce (prv, val, i) ->
-              prv[formatted_deps[i]] =
-                full: val
-                sel: val.substring(1, val.length - 1).split('|')[1]
-              prv
-            , {}
-        else
-          formatted_deps = []
-          selectors_obj = {}
-
         @global.res[res_name] =
           path: res_path
           host: host_name
-          deps: formatted_deps
-          sels: selectors_obj
+          deps: @lexer res_path
           local: if host.local then host.local else no
 
   process_dependencies: ->
@@ -78,70 +127,56 @@ module.exports =
 
       # 2. if resource is local, load and parse it
       if res.local
-        fs.readFile res.local + res.path, (file) ->
-          if res.local.indexOf '.yaml'
-            data = yaml.safeLoad file
-          else if res.local.indexOf '.json'
-            data = JSON.parse file
-          else
-            data = file
-          outer_cb null, data
-          , 'utf8'
+        file = fs.readFileSync res.local + res.path, 'utf8'
+        if res.path.indexOf '.yaml' >= 0
+          data = yaml.safeLoad file
+        else if res.path.indexOf '.json' >= 0
+          data = JSON.parse file
+        else
+          data = file
+        outer_cb null, data
         return
 
       # 3. using the original url, build a set of urls to hit
-      orig_url = res.path
-      urls = []
-
-      if res.deps.length
-        for dep_name in res.deps
-          url = orig_url + ''
-          selector = res.sels[dep_name]
-          matches = select.match selector.sel, results[dep_name]
-
-          console.log 'DEBUG', url, dep_name, selector, matches
-
-          for match in matches
-            urls.push url.replace(selector.full, match)
-            # console.log url
-            # urls.push url
+      # console.log 'TWOFACE ARGS', res.path, '\n', results, '\n', res.deps._resources, '\n', res.deps
+      if res.deps._count
+        urls = @render res.path, results, {}, res.deps._resources, res.deps, []
       else
-        urls.push orig_url
+        urls = [res.path]
 
-      # 4. TODO
-      console.log urls
-
-      # 5. for every url, make a parallel async function in order to retrieve it
+      # 4. for every url, make a parallel async function in order to retrieve it
       inner_asyncs = []
 
-      for url in urls
-        inner_asyncs.push (inner_cb) =>
-          hostname = @doc.hosts[res.host].host or 'localhost'
-          port = @doc.hosts[res.host].port or '80'
-          uri = "http://#{hostname}:#{port}#{url}"
-          console.log "Hitting #{uri}"
+      for url in urls when _.isArray urls
+        inner_asyncs.push(
+          do (url) =>
+            (inner_cb) =>
+              hostname = @doc.hosts[res.host].host or 'localhost'
+              port = @doc.hosts[res.host].port or '80'
+              uri = "http://#{hostname}:#{port}#{url}"
 
-          request
-            method: 'GET'
-            uri: uri
-            , (err, rsp, body) =>
-              if not err and rsp.statusCode is 200
-                console.log "200 OK #{body.length} bytes"
-                inner_cb null, JSON.parse body
-              else
-                inner_cb rsp.statusCode, null
+              request
+                method: 'GET'
+                uri: uri
+                , (err, rsp, body) =>
+                  if not err and rsp.statusCode is 200
+                    console.log "GET #{uri} => 200 OK #{body.length} bytes"
+                    inner_cb null, JSON.parse(body)
+                  else
+                    inner_cb rsp.statusCode, null
+        )
 
-      async.parallel inner_asyncs, (err, results) ->
-        outer_cb err, results
+      async.parallelLimit inner_asyncs, @config.max, (err, inner_results) ->
+        outer_cb err, inner_results
 
     for res_name, res of @global.res
-      if res.deps.length
+      if res.deps._count
         auto_func = [
           do (res_name) ->
             (cb, results) ->
               cbf res_name, cb, results
         ]
-        auto_deps = res.deps.concat auto_func
+        auto_deps = res.deps._keys.concat auto_func
         @global.deps[res_name] = auto_deps
 
       else
@@ -152,9 +187,10 @@ module.exports =
 
   download_all: ->
     # console.log @global.deps
-    console.log @global.deps
-    async.auto @global.deps, (err, results) ->
+    async.auto @global.deps, (err, results) =>
       unless err
-        console.log results
+        console.log 'Writing results...'
+        fs.writeFileSync(@config.dir, JSON.stringify(results, null, 2), 'utf8')
+        console.log 'Done!'
       else
         console.error err
