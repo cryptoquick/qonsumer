@@ -96,18 +96,17 @@ module.exports =
         val
       _.uniq urls
     else
-      traverse(data[head.resource]).forEach (val) -> # TODO use JSON selector
-        if @isLeaf
+      i = 0
+      for obj, i in data[head.resource]
+        select.forEach head.selector, obj, (val) ->
           path = _.clone property_path
-          parent_key = @parent?.parent?.parent?.key
-          if (parent_key isnt undefined) and property_path.length # mustn't be root node
-            path.push parseInt parent_key, 10
+          if path.length # mustn't be root node
+            path.push i
           path.push head.resource
           arr = _.deepGet(tree, path) or []
           arr.push
             id: val
           _.deepSet tree, path, arr
-        val
       property_path.push head.resource
       @render template, data, tree, tail, deps, property_path
 
@@ -161,7 +160,13 @@ module.exports =
                 , (err, rsp, body) =>
                   if not err and rsp.statusCode is 200
                     console.log "GET #{uri} => 200 OK #{body.length} bytes"
-                    inner_cb null, JSON.parse(body)
+
+                    if body.length
+                      data = JSON.parse body
+                    else
+                      data = null
+
+                    inner_cb null, data
                   else
                     inner_cb rsp.statusCode, null
         )
