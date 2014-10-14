@@ -92,11 +92,12 @@ module.exports =
             path.push 'id'
             id = _.deepGet tree, path
             url = url.replace pattern, id
-          urls.push url
+          urls.push
+            id: id
+            url: url
         val
-      _.uniq urls
+      _.uniq urls, 'url'
     else
-      i = 0
       for obj, i in data[head.resource]
         select.forEach head.selector, obj, (val) ->
           path = _.clone property_path
@@ -141,7 +142,9 @@ module.exports =
       if res.deps._count
         urls = @render res.path, results, {}, res.deps._resources, res.deps, []
       else
-        urls = [res.path]
+        urls = [
+          url: res.path
+        ]
 
       # 4. for every url, make a parallel async function in order to retrieve it
       inner_asyncs = []
@@ -152,7 +155,7 @@ module.exports =
             (inner_cb) =>
               hostname = @doc.hosts[res.host].host or 'localhost'
               port = @doc.hosts[res.host].port or '80'
-              uri = "http://#{hostname}:#{port}#{url}"
+              uri = "http://#{hostname}:#{port}#{url.url}"
 
               request
                 method: 'GET'
@@ -163,6 +166,7 @@ module.exports =
 
                     if body.length
                       data = JSON.parse body
+                      data.id = url.id if url.id
                     else
                       data = null
 
