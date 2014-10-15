@@ -12,7 +12,15 @@ traverse = require 'traverse'
 crypto = require 'crypto'
 moment = require 'moment'
 require 'twix'
+chalk = require 'chalk'
 lexic = require './lexic'
+
+print =
+  start: chalk.black.bgCyan
+  error: chalk.bold.white.bgRed
+  warning: chalk.black.bgYellow
+  success: chalk.black.bgGreen
+  greatSuccess: chalk.bold.white.bgMagenta
 
 module.exports =
   config:
@@ -38,18 +46,18 @@ module.exports =
     if @config.file and @config.dir
       mkdirp path.dirname(@config.dir), (err) =>
         if err
-          console.error err
+          console.error print.error err
         else
-          console.log "#{@config.file} => #{@config.dir}"
+          console.log print.start "#{@config.file} => #{@config.dir}"
           @run()
 
     else
       unless @config.file
-        console.log 'no config file passed'
+        console.log print.warning 'no config file passed'
       unless @config.dir
-        console.log 'no results directory passed'
+        console.log print.warning 'no results directory passed'
 
-      console.log 'there was an error. use the --help option for more information.'
+      console.log print.error 'there was an error. use the --help option for more information.'
 
   run: ->
     try
@@ -86,7 +94,7 @@ module.exports =
             lexic.apply_many auth.post, ['env'], @config.env
 
             uri = "#{protocol}://#{hostname}:#{port}#{path}"
-            console.log "AUTH #{method} #{uri}"
+            console.log print.start "AUTH #{method} #{uri}"
 
             needle.request(
               method,
@@ -97,7 +105,7 @@ module.exports =
               },
               (err, resp) ->
                 unless err
-                  console.log "#{resp.statusCode} #{resp.statusMessage} #{resp.bytes} bytes"
+                  console.log print.success "#{resp.statusCode} #{resp.statusMessage} #{resp.bytes} bytes"
 
                   if resp.body instanceof Buffer
                     data = JSON.parse resp.body.toString()
@@ -206,7 +214,7 @@ module.exports =
           data = JSON.parse file
         else
           data = file
-        console.log "LOCAL #{res.local}#{res.path}"
+        console.log print.success "LOCAL #{res.local}#{res.path}"
         outer_cb null, data
         return
 
@@ -222,6 +230,9 @@ module.exports =
       inner_asyncs = []
 
       for url in urls when _.isArray urls
+        killAfter = _.after 4, ->
+          true
+
         request = do (url) =>
           (inner_cb) =>
             host = @doc.hosts[res.host]
@@ -240,7 +251,7 @@ module.exports =
 
             params = auth_params or {} # TODO extend params
 
-            console.log "GET #{uri}"
+            console.log print.start "GET #{uri}"
 
             needle.request(
               'GET',
@@ -251,7 +262,7 @@ module.exports =
               },
               (err, resp) ->
                 unless err or resp.statusCode is 500
-                  console.log "#{resp.statusCode} #{resp.statusMessage} #{url.url} #{resp.bytes} bytes"
+                  console.log print.success "#{resp.statusCode} #{resp.statusMessage} #{url.url} #{resp.bytes} bytes"
 
                   if resp.body instanceof Buffer
                     data = JSON.parse resp.body.toString()
@@ -266,9 +277,13 @@ module.exports =
                   inner_cb null, data
                 else
                   error = err or resp.statusCode
-                  console.log "ERROR #{error}\nretrying..."
-                  request inner_cb
-                  # inner_cb err, null
+                  console.log print.warning "WARNING #{error}\nretrying #{url.url}"
+
+                  unless killAfter()
+                    request inner_cb
+                  else
+                    console.log print.error "FAILED #{error} #{url.url}"
+                    inner_cb null, { error }
             )
         inner_asyncs.push request
 
@@ -297,10 +312,10 @@ module.exports =
       duration = moment(@global.time_started).twix(@global.time_ended).humanizeLength()
 
       unless err
-        console.log 'Writing results...'
+        console.log print.success 'Writing results...'
         fs.writeFileSync(@config.dir, JSON.stringify(results, null, 2), 'utf8')
       else
         console.error err
 
-      console.log 'Done!'
+      console.log print.greatSuccess 'Done!'
       console.log "qonsume took #{duration} to run."
