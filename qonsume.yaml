@@ -5,8 +5,8 @@
 env:
   authkey: STATIC_AUTHKEY
 
-# to switch production or staging from the command line usign the --host parameter
-cmd:
+# to switch production or staging from the command line using the --host parameter
+cmd: # TODO
   livehost: host
 
 # describe hosts, and their resources, and resource dependencies

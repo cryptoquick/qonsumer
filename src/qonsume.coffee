@@ -3,19 +3,22 @@ path = require 'path'
 mkdirp = require 'mkdirp'
 yaml = require 'js-yaml'
 select = require 'JSONSelect'
-request = require 'request'
+needle = require 'needle'
 async = require 'async'
 _ = require 'lodash'
 _.mixin require 'lodash-deep'
 yaml = require 'js-yaml'
 traverse = require 'traverse'
+crypto = require 'crypto'
+moment = require 'moment'
+lexic = require './lexic'
 
 module.exports =
   config:
     # defaults
     file: 'qonsume.yaml'
     dir: 'results/data.json'
-    max: 4 # hardcoded hard limit on number of parallel connections
+    max: 2 # hardcoded hard limit on number of parallel connections
 
   global:
     res: {} # resources
@@ -25,8 +28,8 @@ module.exports =
 
   init: (program) ->
     # configure
-    @config.file = program.config? or program.args[0]? or @config.file
-    @config.dir = program.results? or program.args[1]? or @config.dir
+    @config.file = program.config or program.args[0] or @config.file
+    @config.dir = program.results or program.args[1] or @config.dir
 
     # TODO detect if files are present
     if @config.file and @config.dir
@@ -48,33 +51,84 @@ module.exports =
   run: ->
     try
       @doc = yaml.safeLoad(fs.readFileSync(@config.file, 'utf8'))
-      @make_res()
-      @process_dependencies()
-      @download_all()
+      cb = =>
+        @make_res()
+        @process_dependencies()
+        @download_all()
+      @preconfig(cb)
     catch e
       console.error e
 
-  lexer: (template) ->
-    matches = template.match /\(.*?\)/g
-    results = {}
-    resources = []
-    keys = []
+  preconfig: (cb) ->
+    if @doc.env
+      @config.env = {}
+      for k, v of @doc.env
+        @config.env[k] = process.env[v]
 
-    if matches
-      for pattern in matches
-        str = pattern.substring(1, pattern.length - 1)
-        spl = str.split('|')
-        resource = spl[0]
-        selector = spl[1]
-        results[resource] = { resource, selector, pattern }
-        resources.push results[resource]
-        keys.push resource
+    if @doc.options.max_concurrent
+      @config.max = @doc.options.max_concurrent
 
-    results._keys = keys
-    results._resources = resources
-    results._count = resources.length
+    auth_tasks = []
+    for host_name, host of @doc.hosts
+      auth = host.options.auth
+      if auth
+        auth_tasks.push(
+          (inner_cb) =>
+            protocol = auth.protocol or 'https'
+            hostname = lexic.apply_lexer auth.hostname, ['host'], host
+            port = lexic.apply_lexer(auth.port, ['port'], host) or '80'
+            path = auth.path or ''
+            method = auth.method or 'POST'
 
-    results
+            lexic.apply_many auth.post, ['env'], @config.env
+
+            uri = "#{protocol}://#{hostname}:#{port}#{path}"
+            console.log "AUTH #{method} #{uri}"
+
+            needle.request(
+              method,
+              uri,
+              auth.post,
+              { rejectUnauthorized: no },
+              (err, rsp, data) =>
+                unless err
+                  console.log "#{rsp.statusCode} #{rsp.statusMessage} #{rsp.bytes} bytes"
+                  token = select.match auth.hmac.token_selector, data
+                  if token.length
+                    host.options.auth.hmac.token = token[0]
+                  else
+                    console.error 'access token not found. response was...', data
+                  inner_cb null, data
+                else
+                  console.error 'AUTH ERROR', err
+                  inner_cb err, null
+            )
+      )
+
+    if auth_tasks.length
+      async.parallelLimit auth_tasks, @config.max, (err, results) ->
+        if err
+          console.error err
+          throw err
+        else
+          cb()
+    else
+      cb()
+
+  handle_auth: (host_name) ->
+    host = @doc.hosts[host_name]
+    hmac = host.options.auth.hmac
+    if hmac
+      unless hmac.token
+        console.error 'there is no auth token for this host'
+
+      if hmac.timestamp_format
+        hmac.current_timestamp = moment().format hmac.timestamp_format
+
+      str = lexic.apply_lexer hmac.format, ['hmac'], hmac
+      shasum = crypto.createHash hmac.hash_type
+      shasum.update str
+      hmac.hash = shasum.digest 'hex'
 
   render: (template, data, tree, selectors, deps, property_path) ->
     head = selectors.shift()
@@ -117,7 +171,7 @@ module.exports =
         @global.res[res_name] =
           path: res_path
           host: host_name
-          deps: @lexer res_path
+          deps: lexic.lexer res_path
           local: if host.local then host.local else no
 
   process_dependencies: ->
@@ -138,7 +192,6 @@ module.exports =
         return
 
       # 3. using the original url, build a set of urls to hit
-      # console.log 'TWOFACE ARGS', res.path, '\n', results, '\n', res.deps._resources, '\n', res.deps
       if res.deps._count
         urls = @render res.path, results, {}, res.deps._resources, res.deps, []
       else
@@ -153,26 +206,44 @@ module.exports =
         inner_asyncs.push(
           do (url) =>
             (inner_cb) =>
-              hostname = @doc.hosts[res.host].host or 'localhost'
-              port = @doc.hosts[res.host].port or '80'
-              uri = "http://#{hostname}:#{port}#{url.url}"
+              host = @doc.hosts[res.host]
+              hostname = host.hostname or 'localhost'
+              port = host.port or '80'
+              protocol = host.protocol or 'http'
 
-              request
-                method: 'GET'
-                uri: uri
-                , (err, rsp, body) =>
-                  if not err and rsp.statusCode is 200
-                    console.log "GET #{uri} => 200 OK #{body.length} bytes"
+              uri = "#{protocol}://#{hostname}:#{port}#{url.url}"
 
-                    if body.length
-                      data = JSON.parse body
+              auth_params = host.options?.auth?.params
+
+              if auth_params
+                @handle_auth res.host
+                lexic.apply_many auth_params, ['env'], @config.env
+                lexic.apply_many auth_params, ['hmac'], host.options.auth.hmac
+
+              params = auth_params or {} # TODO extend params
+
+              console.log "GET #{uri}"
+
+              needle.request(
+                'GET',
+                uri,
+                params,
+                {
+                  rejectUnauthorized: no
+                },
+                (err, rsp, data) =>
+                  unless err
+                    console.log "#{rsp.statusCode} #{rsp.statusMessage} #{rsp.bytes} bytes"
+
+                    if rsp.bytes
                       data.id = url.id if url.id
                     else
                       data = null
 
                     inner_cb null, data
                   else
-                    inner_cb rsp.statusCode, null
+                    inner_cb err, null
+              )
         )
 
       async.parallelLimit inner_asyncs, @config.max, (err, inner_results) ->
@@ -195,7 +266,6 @@ module.exports =
               cbf res_name, cb
 
   download_all: ->
-    # console.log @global.deps
     async.auto @global.deps, (err, results) =>
       unless err
         console.log 'Writing results...'
