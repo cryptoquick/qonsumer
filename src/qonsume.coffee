@@ -11,6 +11,7 @@ yaml = require 'js-yaml'
 traverse = require 'traverse'
 crypto = require 'crypto'
 moment = require 'moment'
+require 'twix'
 lexic = require './lexic'
 
 module.exports =
@@ -27,6 +28,8 @@ module.exports =
     trees: {}
 
   init: (program) ->
+    @global.time_started = new Date()
+
     # configure
     @config.file = program.config or program.args[0] or @config.file
     @config.dir = program.results or program.args[1] or @config.dir
@@ -65,12 +68,12 @@ module.exports =
       for k, v of @doc.env
         @config.env[k] = process.env[v]
 
-    if @doc.options.max_concurrent
+    if @doc.options?.max_concurrent
       @config.max = @doc.options.max_concurrent
 
     auth_tasks = []
     for host_name, host of @doc.hosts
-      auth = host.options.auth
+      auth = host.options?.auth
       if auth
         auth_tasks.push(
           (inner_cb) =>
@@ -89,11 +92,20 @@ module.exports =
               method,
               uri,
               auth.post,
-              { rejectUnauthorized: no },
-              (err, rsp, data) =>
+              {
+                rejectUnauthorized: no
+              },
+              (err, resp) ->
                 unless err
-                  console.log "#{rsp.statusCode} #{rsp.statusMessage} #{rsp.bytes} bytes"
+                  console.log "#{resp.statusCode} #{resp.statusMessage} #{resp.bytes} bytes"
+
+                  if resp.body instanceof Buffer
+                    data = JSON.parse resp.body.toString()
+                  else
+                    data = resp.body
+
                   token = select.match auth.hmac.token_selector, data
+
                   if token.length
                     host.options.auth.hmac.token = token[0]
                   else
@@ -118,6 +130,7 @@ module.exports =
   handle_auth: (host_name) ->
     host = @doc.hosts[host_name]
     hmac = host.options.auth.hmac
+
     if hmac
       unless hmac.token
         console.error 'there is no auth token for this host'
@@ -129,6 +142,7 @@ module.exports =
       shasum = crypto.createHash hmac.hash_type
       shasum.update str
       hmac.hash = shasum.digest 'hex'
+      hmac.hash
 
   render: (template, data, tree, selectors, deps, property_path) ->
     head = selectors.shift()
@@ -152,7 +166,10 @@ module.exports =
         val
       _.uniq urls, 'url'
     else
-      for obj, i in data[head.resource]
+      datum = data[head.resource]
+      unless _.isArray datum
+        datum = [datum]
+      for obj, i in datum
         select.forEach head.selector, obj, (val) ->
           path = _.clone property_path
           if path.length # mustn't be root node
@@ -178,9 +195,10 @@ module.exports =
     cbf = (path, outer_cb, results) =>
       # 1. get resource
       res = @global.res[path]
+      host = @doc.hosts[res.host]
 
       # 2. if resource is local, load and parse it
-      if res.local
+      if host.local
         file = fs.readFileSync res.local + res.path, 'utf8'
         if res.path.indexOf '.yaml' >= 0
           data = yaml.safeLoad file
@@ -188,6 +206,7 @@ module.exports =
           data = JSON.parse file
         else
           data = file
+        console.log "LOCAL #{res.local}#{res.path}"
         outer_cb null, data
         return
 
@@ -203,48 +222,55 @@ module.exports =
       inner_asyncs = []
 
       for url in urls when _.isArray urls
-        inner_asyncs.push(
-          do (url) =>
-            (inner_cb) =>
-              host = @doc.hosts[res.host]
-              hostname = host.hostname or 'localhost'
-              port = host.port or '80'
-              protocol = host.protocol or 'http'
+        request = do (url) =>
+          (inner_cb) =>
+            host = @doc.hosts[res.host]
+            hostname = host.hostname or 'localhost'
+            port = host.port or '80'
+            protocol = host.protocol or 'http'
 
-              uri = "#{protocol}://#{hostname}:#{port}#{url.url}"
+            uri = "#{protocol}://#{hostname}:#{port}#{url.url}"
 
-              auth_params = host.options?.auth?.params
+            auth_params = _.clone host.options?.auth?.params
 
-              if auth_params
-                @handle_auth res.host
-                lexic.apply_many auth_params, ['env'], @config.env
-                lexic.apply_many auth_params, ['hmac'], host.options.auth.hmac
+            if auth_params
+              @handle_auth res.host
+              lexic.apply_many auth_params, ['env'], @config.env
+              lexic.apply_many auth_params, ['hmac'], host.options.auth.hmac
 
-              params = auth_params or {} # TODO extend params
+            params = auth_params or {} # TODO extend params
 
-              console.log "GET #{uri}"
+            console.log "GET #{uri}"
 
-              needle.request(
-                'GET',
-                uri,
-                params,
-                {
-                  rejectUnauthorized: no
-                },
-                (err, rsp, data) =>
-                  unless err
-                    console.log "#{rsp.statusCode} #{rsp.statusMessage} #{rsp.bytes} bytes"
+            needle.request(
+              'GET',
+              uri,
+              params,
+              {
+                rejectUnauthorized: no
+              },
+              (err, resp) ->
+                unless err or resp.statusCode is 500
+                  console.log "#{resp.statusCode} #{resp.statusMessage} #{url.url} #{resp.bytes} bytes"
 
-                    if rsp.bytes
-                      data.id = url.id if url.id
-                    else
-                      data = null
-
-                    inner_cb null, data
+                  if resp.body instanceof Buffer
+                    data = JSON.parse resp.body.toString()
                   else
-                    inner_cb err, null
-              )
-        )
+                    data = resp.body
+
+                  if resp.bytes
+                    data.id = url.id if url.id
+                  else
+                    data = null
+
+                  inner_cb null, data
+                else
+                  error = err or resp.statusCode
+                  console.log "ERROR #{error}\nretrying..."
+                  request inner_cb
+                  # inner_cb err, null
+            )
+        inner_asyncs.push request
 
       async.parallelLimit inner_asyncs, @config.max, (err, inner_results) ->
         outer_cb err, inner_results
@@ -267,9 +293,14 @@ module.exports =
 
   download_all: ->
     async.auto @global.deps, (err, results) =>
+      @global.time_ended = new Date()
+      duration = moment(@global.time_started).twix(@global.time_ended).humanizeLength()
+
       unless err
         console.log 'Writing results...'
         fs.writeFileSync(@config.dir, JSON.stringify(results, null, 2), 'utf8')
-        console.log 'Done!'
       else
         console.error err
+
+      console.log 'Done!'
+      console.log "qonsume took #{duration} to run."
