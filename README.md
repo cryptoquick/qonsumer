@@ -25,3 +25,13 @@ qonsumer is in early development stages, and its documentation is still in devel
   - you will basically provide an input configuration yaml as the first argument, then a file to output those results as the second argument.
 
 you will likely need to fork this project to make it suitable for your own needs. if you develop anything valuable, pull requests are gladly accepted. feature requests will also be considered; feel free to open an issue.
+
+# install
+
+`npm install -g qonsumer`
+
+# run
+
+example:
+
+`qonsumer config.yaml output.json`
