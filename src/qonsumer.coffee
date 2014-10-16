@@ -25,7 +25,7 @@ print =
 module.exports =
   config:
     # defaults
-    file: 'qonsume.yaml'
+    file: 'qonsumer.yaml'
     dir: 'results/data.json'
     max: 2 # hardcoded hard limit on number of parallel connections
 
@@ -318,4 +318,4 @@ module.exports =
         console.error err
 
       console.log print.greatSuccess 'Done!'
-      console.log "qonsume took #{duration} to run."
+      console.log "qonsumer took #{duration} to run."

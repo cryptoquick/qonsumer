@@ -16,7 +16,7 @@ module.exports = (grunt) ->
     file_append:
       build:
         files:
-          'bin/qonsume':
+          'bin/qonsumer':
             prepend: '#!/usr/bin/env node\n'
             input: 'lib/index.js'
 
@@ -24,7 +24,7 @@ module.exports = (grunt) ->
       options:
         mode: '755'
       build:
-        src: ['bin/qonsume']
+        src: ['bin/qonsumer']
 
     watch:
       watch:

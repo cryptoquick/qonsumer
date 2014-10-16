@@ -1,13 +1,13 @@
 {
-  "name": "qonsume",
-  "version": "0.0.0",
+  "name": "qonsumer",
+  "version": "0.1.0",
   "description": "a consumer of APIs to static files according to rulesets",
   "main": "lib/index.js",
   "author": "Hunter Trujillo <cryptoquick@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "http://github.com/cryptoquick/qonsume.git"
+    "url": "http://github.com/cryptoquick/qonsumer.git"
   },
   "dependencies": {
     "JSONSelect": "^0.4.0",

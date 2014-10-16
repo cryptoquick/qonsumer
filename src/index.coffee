@@ -1,6 +1,6 @@
 fs = require 'fs'
 program = require 'commander'
-qonsume = require '../lib/qonsume'
+qonsumer = require '../lib/qonsumer'
 
 pkg = JSON.parse(fs.readFileSync('./package.json', 'utf8'))
 
@@ -9,4 +9,4 @@ program.option '-c, --config', 'input configuration file'
 program.option '-r, --results', 'directory to output results'
 program.parse process.argv
 
-qonsume.init program
+qonsumer.init program

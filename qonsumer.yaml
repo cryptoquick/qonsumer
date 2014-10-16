@@ -1,5 +1,5 @@
 ---
-# an example qonsume.yaml
+# an example qonsumer.yaml
 
 # provides authentication key use in query
 env:
