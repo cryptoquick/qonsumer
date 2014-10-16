@@ -230,11 +230,9 @@ module.exports =
       inner_asyncs = []
 
       for url in urls when _.isArray urls
-        killAfter = _.after 4, ->
-          true
-
         request = do (url) =>
-          (inner_cb) =>
+          (inner_cb, runs) =>
+            runs = runs or 0
             host = @doc.hosts[res.host]
             hostname = host.hostname or 'localhost'
             port = host.port or '80'
@@ -279,8 +277,8 @@ module.exports =
                   error = err or resp.statusCode
                   console.log print.warning "WARNING #{error}\nretrying #{url.url}"
 
-                  unless killAfter()
-                    request inner_cb
+                  unless runs >= 4
+                    request inner_cb, runs++
                   else
                     console.log print.error "FAILED #{error} #{url.url}"
                     inner_cb null, { error }
