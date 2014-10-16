@@ -1,6 +1,6 @@
 {
   "name": "qonsumer",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "a consumer of APIs to static files according to rulesets",
   "main": "lib/index.js",
   "author": "Hunter Trujillo <cryptoquick@gmail.com>",
