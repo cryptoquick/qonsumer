@@ -1,6 +1,6 @@
 {
   "name": "qonsumer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "a consumer of APIs to static files according to rulesets",
   "main": "lib/index.js",
   "author": "Hunter Trujillo <cryptoquick@gmail.com>",
@@ -36,5 +36,9 @@
   },
   "scripts": {
     "prepublish": "grunt build"
+  },
+  "preferGlobal": "true",
+  "bin": {
+    "qonsumer" : "bin/qonsumer"
   }
 }
