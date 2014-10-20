@@ -181,7 +181,6 @@ module.exports =
             name: res_name
         val
       _.uniq urls, 'url'
-
     else
       datum = data[head.resource]
       unless _.isArray datum
@@ -243,7 +242,8 @@ module.exports =
 
       for url in urls when _.isArray urls
         request = do (url) =>
-          (inner_cb, paged_data) =>
+          (inner_cb, runs, offset, paged_data) =>
+            runs = runs or 0
             host = @doc.hosts[res.host]
             hostname = host.hostname or 'localhost'
             port = host.port or ''
@@ -261,7 +261,8 @@ module.exports =
             params = auth_params or {} # TODO extend params
 
             pag = host.pagination?[url.name]
-            offset = paged_data?[url.name].length or 0
+            offset = offset or 0
+            paged_data = paged_data or []
 
             if pag
               pag_params = {}
@@ -303,26 +304,22 @@ module.exports =
 
                   if pag and (select.match(pag.selector, data).length is pag.limit)
                     offset += pag.limit
-                    paged_data[url.name]?.push data
+                    paged_data.push data
                     request inner_cb, 0, offset, paged_data
                   else
-                    if offset
-                      paged_data[url.name]?.push data
+                    if paged_data.length
+                      paged_data.push data
                       data = paged_data
                     inner_cb null, data
-
                 else
                   error = err or resp.statusCode
                   console.log print.warning "WARNING #{error} ... retrying #{url.url}"
-                  async.retry retries,
-                    (cb, results) ->
-                      request cb, offset, paged_data
-                    , (err, results) ->
-                      unless err
-                        inner_cb null, results
-                      else
-                        console.log print.error "SKIPPED #{error} #{url.url}"
-                        inner_cb null, paged_data
+                  unless runs >= retries
+                    runs++
+                    request inner_cb, runs, offset, paged_data
+                  else
+                    console.log print.error "SKIPPED #{error} #{url.url}"
+                    inner_cb null, { error }
             )
         inner_asyncs.push request
 
