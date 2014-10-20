@@ -9,6 +9,7 @@ qonsumer can consume the following:
   - api endpoints behind an authentication layer
     - currently supported formats: `hmac`
     - feel free to add your own
+  - paginated records
   - other endpoints using rules and formatting from data in previously consumed endpoints
   - yaml stub files that contain data not defined in the api
 

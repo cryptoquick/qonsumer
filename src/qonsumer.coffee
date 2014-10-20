@@ -27,7 +27,8 @@ module.exports =
     # defaults
     file: 'qonsumer.yaml'
     dir: 'results/data.json'
-    max: 2 # hardcoded hard limit on number of parallel connections
+    max: 2 # hard limit on number of parallel connections
+    retries: 4
 
   global:
     res: {} # resources
@@ -68,7 +69,7 @@ module.exports =
         @download_all()
       @preconfig(cb)
     catch e
-      console.error e
+      console.error print.error e
 
   preconfig: (cb) ->
     if @doc.env
@@ -79,6 +80,9 @@ module.exports =
     if @doc.options?.max_concurrent
       @config.max = @doc.options.max_concurrent
 
+    if @doc.options?.max_retries
+      @config.retries = @doc.options.max_retries
+
     auth_tasks = []
     for host_name, host of @doc.hosts
       auth = host.options?.auth
@@ -87,7 +91,7 @@ module.exports =
           (inner_cb) =>
             protocol = auth.protocol or 'https'
             hostname = lexic.apply_lexer auth.hostname, ['host'], host
-            port = lexic.apply_lexer(auth.port, ['port'], host) or '80'
+            port = lexic.apply_lexer(auth.port, ['port'], host) or ''
             path = auth.path or ''
             method = auth.method or 'POST'
 
@@ -117,10 +121,10 @@ module.exports =
                   if token.length
                     host.options.auth.hmac.token = token[0]
                   else
-                    console.error 'access token not found. response was...', data
+                    console.error print.error 'access token not found. response was...', data
                   inner_cb null, data
                 else
-                  console.error 'AUTH ERROR', err
+                  console.error print.error 'AUTH ERROR', err
                   inner_cb err, null
             )
       )
@@ -128,7 +132,7 @@ module.exports =
     if auth_tasks.length
       async.parallelLimit auth_tasks, @config.max, (err, results) ->
         if err
-          console.error err
+          console.error print.error err
           throw err
         else
           cb()
@@ -141,7 +145,7 @@ module.exports =
 
     if hmac
       unless hmac.token
-        console.error 'there is no auth token for this host'
+        console.error print.error 'there is no auth token for this host'
 
       if hmac.timestamp_format
         hmac.current_timestamp = moment().format hmac.timestamp_format
@@ -152,9 +156,12 @@ module.exports =
       hmac.hash = shasum.digest 'hex'
       hmac.hash
 
-  render: (template, data, tree, selectors, deps, property_path) ->
+  render: (res, data, tree, selectors, property_path) ->
     head = selectors.shift()
     tail = selectors
+    template = res.path
+    deps = res.deps
+    res_name = res.name
 
     unless head
       urls = []
@@ -162,15 +169,16 @@ module.exports =
         if @isLeaf and (@level is property_path.length * 2 + 1) # ids
           url = template
           for i in [0...Math.floor(@path.length / 2)]
-            inner_parent_key = @path[i * 2]
-            pattern = deps[inner_parent_key].pattern
+            # inner_parent_key = @path[i * 2]
             path = @path.slice(0, (i + 1) * 2)
-            path.push 'id'
-            id = _.deepGet tree, path
+            id = _.deepGet tree, path.concat 'id'
+            res = _.deepGet tree, path.concat 'res'
+            pattern = deps[res].pattern
             url = url.replace pattern, id
           urls.push
             id: id
             url: url
+            name: res_name
         val
       _.uniq urls, 'url'
     else
@@ -186,14 +194,16 @@ module.exports =
           arr = _.deepGet(tree, path) or []
           arr.push
             id: val
+            res: head.resource
           _.deepSet tree, path, arr
       property_path.push head.resource
-      @render template, data, tree, tail, deps, property_path
+      @render res, data, tree, tail, property_path
 
   make_res: ->
     for host_name, host of @doc.hosts
       for res_name, res_path of host.res
         @global.res[res_name] =
+          name: res_name
           path: res_path
           host: host_name
           deps: lexic.lexer res_path
@@ -220,10 +230,11 @@ module.exports =
 
       # 3. using the original url, build a set of urls to hit
       if res.deps._count
-        urls = @render res.path, results, {}, res.deps._resources, res.deps, []
+        urls = @render res, results, {}, res.deps._resources, []
       else
         urls = [
           url: res.path
+          name: res.name
         ]
 
       # 4. for every url, make a parallel async function in order to retrieve it
@@ -231,11 +242,11 @@ module.exports =
 
       for url in urls when _.isArray urls
         request = do (url) =>
-          (inner_cb, runs) =>
+          (inner_cb, runs, offset, paged_data) =>
             runs = runs or 0
             host = @doc.hosts[res.host]
             hostname = host.hostname or 'localhost'
-            port = host.port or '80'
+            port = host.port or ''
             protocol = host.protocol or 'http'
 
             uri = "#{protocol}://#{hostname}:#{port}#{url.url}"
@@ -249,6 +260,20 @@ module.exports =
 
             params = auth_params or {} # TODO extend params
 
+            pag = host.pagination?[url.name]
+            offset = offset or 0
+            paged_data = paged_data or []
+
+            if pag
+              pag_params = {}
+              if pag.params.limit_param
+                pag_params[pag.params.limit_param] = pag.limit
+              if pag.params.offset_param
+                pag_params[pag.params.offset_param] = offset
+              params = _.extend params, pag_params
+
+            retries = @config.retries
+
             console.log print.start "GET #{uri}"
 
             needle.request(
@@ -259,8 +284,13 @@ module.exports =
                 rejectUnauthorized: no
               },
               (err, resp) ->
-                unless err or resp.statusCode is 500
-                  console.log print.success "#{resp.statusCode} #{resp.statusMessage} #{url.url} #{resp.bytes} bytes"
+                unless err or resp.statusCode is 500 or resp.statusCode is 404
+                  if pag
+                    page = "... records #{offset} - #{offset + pag.limit}"
+                  else
+                    page = ""
+
+                  console.log print.success "#{resp.statusCode} #{resp.statusMessage} #{url.url} #{resp.bytes} bytes#{page}"
 
                   if resp.body instanceof Buffer
                     data = JSON.parse resp.body.toString()
@@ -272,15 +302,23 @@ module.exports =
                   else
                     data = null
 
-                  inner_cb null, data
+                  if pag and (select.match(pag.selector, data).length is pag.limit)
+                    offset += pag.limit
+                    paged_data.push data
+                    request inner_cb, 0, offset, paged_data
+                  else
+                    if paged_data.length
+                      paged_data.push data
+                      data = paged_data
+                    inner_cb null, data
                 else
                   error = err or resp.statusCode
-                  console.log print.warning "WARNING #{error}\nretrying #{url.url}"
-
-                  unless runs >= 4
-                    request inner_cb, runs++
+                  console.log print.warning "WARNING #{error} ... retrying #{url.url}"
+                  unless runs >= retries
+                    runs++
+                    request inner_cb, runs, offset, paged_data
                   else
-                    console.log print.error "FAILED #{error} #{url.url}"
+                    console.log print.error "SKIPPED #{error} #{url.url}"
                     inner_cb null, { error }
             )
         inner_asyncs.push request
@@ -290,19 +328,18 @@ module.exports =
 
     for res_name, res of @global.res
       if res.deps._count
-        auto_func = [
+        auto_func =
           do (res_name) ->
-            (cb, results) ->
-              cbf res_name, cb, results
-        ]
-        auto_deps = res.deps._keys.concat auto_func
+            (auto_cb, results) ->
+              cbf res_name, auto_cb, results
+        auto_deps = res.deps._keys.concat [auto_func]
         @global.deps[res_name] = auto_deps
 
       else
         @global.deps[res_name] =
           do (res_name) ->
-            (cb) ->
-              cbf res_name, cb
+            (auto_cb) ->
+              cbf res_name, auto_cb
 
   download_all: ->
     async.auto @global.deps, (err, results) =>
@@ -313,7 +350,7 @@ module.exports =
         console.log print.success 'Writing results...'
         fs.writeFileSync(@config.dir, JSON.stringify(results, null, 2), 'utf8')
       else
-        console.error err
+        console.error print.error err
 
       console.log print.greatSuccess 'Done!'
       console.log "qonsumer took #{duration} to run."
