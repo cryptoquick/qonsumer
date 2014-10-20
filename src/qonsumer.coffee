@@ -258,7 +258,8 @@ module.exports =
               lexic.apply_many auth_params, ['env'], @config.env
               lexic.apply_many auth_params, ['hmac'], host.options.auth.hmac
 
-            params = auth_params or {} # TODO extend params
+            params = auth_params or {}
+            params = _.extend params, host.params[url.name] if host.params?[url.name]
 
             pag = host.pagination?[url.name]
             offset = offset or 0
