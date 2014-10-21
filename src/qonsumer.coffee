@@ -106,6 +106,7 @@ module.exports =
               auth.post,
               {
                 rejectUnauthorized: no
+                follow: yes
               },
               (err, resp) ->
                 unless err
@@ -240,9 +241,11 @@ module.exports =
       # 4. for every url, make a parallel async function in order to retrieve it
       inner_asyncs = []
 
+      opts = _.extend @doc.options, host.options
+
       for url in urls when _.isArray urls
         request = do (url) =>
-          (inner_cb, runs, offset, paged_data) =>
+          (inner_cb, paged_data, runs, offset) =>
             runs = runs or 0
             host = @doc.hosts[res.host]
             hostname = host.hostname or 'localhost'
@@ -283,6 +286,7 @@ module.exports =
               params,
               {
                 rejectUnauthorized: no
+                follow: yes
               },
               (err, resp) ->
                 unless err or resp.statusCode is 500 or resp.statusCode is 404
@@ -317,12 +321,19 @@ module.exports =
                   console.log print.warning "WARNING #{error} ... retrying #{url.url}"
                   unless runs >= retries
                     runs++
-                    request inner_cb, runs, offset, paged_data
+                    _.delay ->
+                      request inner_cb, paged_data, runs, offset
+                    , opts.delay or 100
                   else
                     console.log print.error "SKIPPED #{error} #{url.url}"
                     inner_cb null, { error }
             )
-        inner_asyncs.push request
+
+        if opts.delay
+          delayed_request = (inner_cb, results) ->
+            _.delay request, opts.delay, inner_cb, results
+
+        inner_asyncs.push request or delayed_request
 
       async.parallelLimit inner_asyncs, @config.max, (err, inner_results) ->
         outer_cb err, inner_results
@@ -355,3 +366,19 @@ module.exports =
 
       console.log print.greatSuccess 'Done!'
       console.log "qonsumer took #{duration} to run."
+
+      @post_process()
+
+  post_process: ->
+    if @doc.extract
+      json = fs.readFileSync @config.dir, 'utf8'
+      data = JSON.parse json
+      results = {}
+
+      for key, obj of data
+        if @doc.extract[key]
+          results[key] = select.match @doc.extract[key], obj
+
+      fs.writeFileSync("#{@config.dir}.extracts.json", JSON.stringify(results, null, 2), 'utf8')
+
+      console.log "data extracted."
