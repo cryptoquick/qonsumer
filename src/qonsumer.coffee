@@ -241,7 +241,7 @@ module.exports =
       # 4. for every url, make a parallel async function in order to retrieve it
       inner_asyncs = []
 
-      opts = _.extend @doc.options, host.options
+      opts = _.extend @doc.options or {}, host.options or {}
 
       for url in urls when _.isArray urls
         request = do (url) =>
@@ -308,16 +308,19 @@ module.exports =
                   else
                     data = null
 
+                  # pagination
                   if pag and (select.match(pag.selector, data).length is pag.limit)
                     offset += pag.limit
                     paged_data.push data
-                    request inner_cb, 0, offset, paged_data
-                  else
+                    _.delay ->
+                      request inner_cb, 0, offset, paged_data
+                    , opts.delay or 100
+                  else # standard single request
                     if paged_data.length
                       paged_data.push data
                       data = paged_data
                     inner_cb null, data
-                else
+                else # there was an error...
                   error = err or resp.statusCode
                   console.log print.warning "WARNING #{error} ... retrying #{url.url}"
                   unless runs >= retries
@@ -325,7 +328,7 @@ module.exports =
                     _.delay ->
                       request inner_cb, paged_data, runs, offset
                     , opts.delay or 100
-                  else
+                  else # give up
                     console.log print.error "SKIPPED #{error} #{url.url}"
                     inner_cb null, { error }
             )
