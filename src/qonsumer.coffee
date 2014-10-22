@@ -287,6 +287,7 @@ module.exports =
               {
                 rejectUnauthorized: no
                 follow: yes
+                timeout: opts.timeout or 10000
               },
               (err, resp) ->
                 unless err or resp.statusCode is 500 or resp.statusCode is 404
