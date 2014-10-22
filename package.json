@@ -1,19 +1,32 @@
 {
   "name": "qonsumer",
-  "version": "0.1.4",
-  "description": "a consumer of APIs to static files according to rulesets",
+  "version": "0.2.0",
+  "description": "configurable API crawler, for scraping to static files",
   "main": "lib/index.js",
   "author": "Hunter Trujillo <cryptoquick@gmail.com>",
   "license": "MIT",
+  "homepage": "https://github.com/cryptoquick/qonsumer",
+  "bugs": {
+    "url": "https://github.com/cryptoquick/qonsumer/issues"
+  },
   "repository": {
     "type": "git",
     "url": "http://github.com/cryptoquick/qonsumer.git"
   },
+  "keywords": [
+    "api",
+    "crawler",
+    "scraper",
+    "json",
+    "consumer",
+    "command",
+    "static"
+  ],
   "dependencies": {
     "JSONSelect": "^0.4.0",
     "async": "^0.9.0",
     "chalk": "^0.5.1",
-    "commander": "^2.3.0",
+    "commander": "^2.4.0",
     "js-yaml": "^3.2.2",
     "lodash": "^2.4.1",
     "lodash-deep": "^1.4.2",
@@ -30,15 +43,13 @@
     "grunt-contrib-concat": "^0.5.0",
     "grunt-contrib-watch": "^0.6.1",
     "grunt-file-append": "0.0.5",
-    "grunt-mocha-test": "^0.12.0",
-    "grunt-stubby": "^0.1.4",
-    "mocha": "^1.21.4"
+    "grunt-stubby": "^0.1.4"
   },
   "scripts": {
     "prepublish": "grunt build"
   },
   "preferGlobal": "true",
   "bin": {
-    "qonsumer" : "bin/qonsumer"
+    "qonsumer": "bin/qonsumer"
   }
 }
