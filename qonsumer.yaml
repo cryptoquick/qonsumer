@@ -31,5 +31,5 @@ hosts:
       users: /user/(comments_on_articles|.user .id)
       special_users: /user/(special_user_ids|.users number)
 
-extract: # TODO
-  user_names.json: (users|.user .name)
+extract:
+  special_users: .user .name
