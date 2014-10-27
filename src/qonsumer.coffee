@@ -13,14 +13,15 @@ crypto = require 'crypto'
 moment = require 'moment'
 require 'twix'
 chalk = require 'chalk'
+progress = require 'progress'
 lexic = require './lexic'
 
 print =
-  start: chalk.black.bgCyan
-  error: chalk.bold.white.bgRed
-  warning: chalk.black.bgYellow
-  success: chalk.black.bgGreen
-  greatSuccess: chalk.bold.white.bgMagenta
+  start: chalk.cyan
+  error: chalk.bold.red
+  warning: chalk.yellow
+  success: chalk.green
+  greatSuccess: chalk.bold.magenta
 
 module.exports =
   config:
@@ -35,6 +36,11 @@ module.exports =
     deps: {} # for async auto
     results: {}
     trees: {}
+    bar: new progress 'downloading [:bar] :percent :elapseds elapsed\n',
+      complete: '='
+      incomplete: ' '
+      width: 20
+      total: 1
 
   init: (program) ->
     @global.time_started = new Date()
@@ -289,7 +295,7 @@ module.exports =
                 follow: yes
                 timeout: opts.timeout or 10000
               },
-              (err, resp) ->
+              (err, resp) =>
                 unless err or resp.statusCode is 500 or resp.statusCode is 404
                   if pag
                     page = "... records #{offset} - #{offset + pag.limit}"
@@ -313,12 +319,14 @@ module.exports =
                     offset += pag.limit
                     paged_data.push data
                     _.delay ->
+                      @global.bar.total++
                       request inner_cb, 0, offset, paged_data
                     , opts.delay or 100
                   else # standard single request
                     if paged_data.length
                       paged_data.push data
                       data = paged_data
+                    @global.bar.tick()
                     inner_cb null, data
                 else # there was an error...
                   error = err or resp.statusCode
@@ -331,6 +339,7 @@ module.exports =
                   else # give up
                     console.log print.error "SKIPPED #{error} #{url.url}"
                     inner_cb null, { error }
+                    @global.bar.tick()
             )
 
         if opts.delay
@@ -338,6 +347,8 @@ module.exports =
             _.delay request, opts.delay, inner_cb, results
 
         inner_asyncs.push request or delayed_request
+
+      @global.bar.total += inner_asyncs.length
 
       async.parallelLimit inner_asyncs, @config.max, (err, inner_results) ->
         outer_cb err, inner_results
@@ -358,7 +369,7 @@ module.exports =
               cbf res_name, auto_cb
 
   download_all: ->
-    async.auto @global.deps, (err, results) =>
+    async.auto(@global.deps, (err, results) =>
       @global.time_ended = new Date()
       duration = moment(@global.time_started).twix(@global.time_ended).humanizeLength()
 
@@ -372,6 +383,7 @@ module.exports =
       console.log "qonsumer took #{duration} to run."
 
       @post_process()
+    , @config.max)
 
   post_process: ->
     if @doc.extract
