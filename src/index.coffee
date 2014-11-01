@@ -1,8 +1,9 @@
 fs = require 'fs'
+path = require 'path'
 program = require 'commander'
 qonsumer = require '../lib/qonsumer'
 
-pkg = JSON.parse(fs.readFileSync('./package.json', 'utf8'))
+pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../package.json'), 'utf8'))
 
 program.version pkg.version
 program.option '-c, --config', 'input configuration file'
