@@ -251,7 +251,8 @@ module.exports =
 
       for url in urls when _.isArray urls
         request = do (url) =>
-          (inner_cb, paged_data, runs, offset) =>
+          (inner_cb, paged_data, runs, offset, new_url) =>
+            url = new_url or url
             runs = runs or 0
             host = @doc.hosts[res.host]
             hostname = host.hostname or 'localhost'
@@ -330,11 +331,11 @@ module.exports =
                     inner_cb null, data
                 else # there was an error...
                   error = err or resp.statusCode
-                  console.log print.warning "WARNING #{error} ... retrying #{url.url}"
                   unless runs >= retries
-                    runs++
-                    _.delay ->
-                      request inner_cb, paged_data, runs, offset
+                    console.log print.warning "WARNING #{error} ... retrying #{url.url}, try \##{runs + 1}"
+                    _.delay =>
+                      runs++
+                      request inner_cb, paged_data, runs, offset, url
                     , opts.delay or 100
                   else # give up
                     console.log print.error "SKIPPED #{error} #{url.url}"
