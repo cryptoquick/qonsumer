@@ -8,6 +8,7 @@ pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../package.json'), 'ut
 program.version pkg.version
 program.option '-c, --config', 'input configuration file'
 program.option '-r, --results', 'directory to output results'
+program.option '-l, --log', 'log results instead of the standard progress bar'
 program.parse process.argv
 
 qonsumer.init program
