@@ -178,7 +178,6 @@ module.exports =
         if @isLeaf and (@level is property_path.length * 2 + 1) # ids
           url = template
           for i in [0...Math.floor(@path.length / 2)]
-            # inner_parent_key = @path[i * 2]
             path = @path.slice(0, (i + 1) * 2)
             id = _.deepGet tree, path.concat 'id'
             res = _.deepGet tree, path.concat 'res'
