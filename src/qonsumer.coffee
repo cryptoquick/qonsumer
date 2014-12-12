@@ -44,7 +44,7 @@ module.exports =
     # configure
     @config.file = program.config or program.args[0] or @config.file
     @config.dir = program.results or program.args[1] or @config.dir
-    @config.log = !!program.log
+    @config.log = !!program.verbose
 
     # progress bar
     unless @config.log

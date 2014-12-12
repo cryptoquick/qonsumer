@@ -37,6 +37,8 @@ example:
 
 `qonsumer config.yaml output.json`
 
+to log results instead of showing the default progress bar, use the `--verbose` or `-v` option.
+
 # develop
 
 for interested developers, fork or check out this repo, then run the grunt compile task, `grunt build`. coffeescript in `src` is compiled to `lib`, which can then be called by `./bin/qonsumer`. to test, in another terminal process, run `grunt server`, then run qonsumer on the example `qonsumer.yaml`.
