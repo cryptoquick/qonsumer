@@ -170,7 +170,7 @@ module.exports =
     tail = selectors
     template = res.path
     deps = res.deps
-    res_name = res.name
+    name = res.name
 
     unless head
       urls = []
@@ -183,10 +183,12 @@ module.exports =
             res = _.deepGet tree, path.concat 'res'
             pattern = deps[res].pattern
             url = url.replace pattern, id
-          urls.push
-            id: id
-            url: url
-            name: res_name
+          urls.push {
+            id
+            url
+            name
+          }
+
         val
       _.uniq urls, 'url'
     else
