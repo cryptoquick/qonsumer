@@ -255,7 +255,7 @@ module.exports =
       for url in urls when _.isArray urls
         request = do (url) =>
           (inner_cb, paged_data, runs, offset, new_url) =>
-            url = new_url or url
+            url = url or new_url
             runs = runs or 0
             host = @doc.hosts[res.host]
             hostname = host.hostname or 'localhost'
