@@ -118,7 +118,7 @@ module.exports =
               },
               (err, resp) ->
                 unless err
-                  console.log print.success "#{resp.statusCode} #{resp.statusMessage} #{resp.bytes} bytes" if log
+                  console.log print.success "#{resp.statusCode} #{resp.statusMessage or ''} #{resp.bytes} bytes" if log
 
                   if resp.body instanceof Buffer
                     data = JSON.parse resp.body.toString()
@@ -304,7 +304,7 @@ module.exports =
                   else
                     page = ""
 
-                  console.log print.success "#{resp.statusCode} #{resp.statusMessage} #{url.url} #{resp.bytes} bytes#{page}" if @config.log
+                  console.log print.success "#{resp.statusCode} #{resp.statusMessage or ''} #{url.url} #{resp.bytes} bytes#{page}" if @config.log
 
                   if resp.body instanceof Buffer
                     data = JSON.parse resp.body.toString()
