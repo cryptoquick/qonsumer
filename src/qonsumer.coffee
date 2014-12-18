@@ -320,11 +320,15 @@ module.exports =
                   if pag and (select.match(pag.selector, data).length is pag.limit)
                     offset += pag.limit
                     paged_data.push data
-                    _.delay ->
+                    _.delay =>
                       @global.bar.total++ unless @config.log
-                      request inner_cb, 0, offset, paged_data
+                      @global.bar.op() unless @config.log
+                      if offset < (pag.max_offset or Infinity)
+                        request inner_cb, paged_data, 0, offset, url
+                      else
+                        inner_cb null, paged_data
                     , opts.delay or 100
-                  else # standard single request
+                  else # this was a standard single request
                     if paged_data.length
                       paged_data.push data
                       data = paged_data
