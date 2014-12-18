@@ -319,12 +319,13 @@ module.exports =
                     data = null
 
                   # pagination
-                  if pag and (select.match(pag.selector, data).length is pag.limit)
+                  result_count = select.match(pag.selector, data).length if pag
+                  if pag and result_count is pag.limit
                     offset += pag.limit
                     paged_data.push data
+                    @global.bar.op() unless @config.log
                     _.delay =>
                       @global.bar.total++ unless @config.log
-                      @global.bar.op() unless @config.log
                       if offset < (pag.max_offset or Infinity)
                         request inner_cb, paged_data, 0, offset, url
                       else
