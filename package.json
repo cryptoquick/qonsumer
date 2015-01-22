@@ -1,6 +1,6 @@
 {
   "name": "qonsumer",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "configurable API crawler, for scraping to static files",
   "main": "lib/index.js",
   "author": "Hunter Trujillo <cryptoquick@gmail.com>",
@@ -45,6 +45,9 @@
     "grunt-contrib-watch": "^0.6.1",
     "grunt-file-append": "0.0.5",
     "grunt-stubby": "^0.1.4"
+  },
+  "peerDependencies": {
+    "grunt": "^0.4.5"
   },
   "scripts": {
     "prepublish": "grunt build"

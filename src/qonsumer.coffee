@@ -139,7 +139,7 @@ module.exports =
       )
 
     if auth_tasks.length
-      async.parallelLimit auth_tasks, @config.max, (err, results) ->
+      async.parallelLimit auth_tasks, @config.max, (err, results) =>
         if err
           console.error print.error err if @config.log
           throw err
