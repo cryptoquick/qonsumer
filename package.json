@@ -1,6 +1,6 @@
 {
   "name": "qonsumer",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "configurable API crawler, for scraping to static files",
   "main": "lib/index.js",
   "author": "Hunter Trujillo <cryptoquick@gmail.com>",
