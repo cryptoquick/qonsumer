@@ -57,8 +57,6 @@ module.exports =
       @config.dir = program.results or program.args[1] or @config.dir
       @config.log = !!program.verbose
 
-    console.log @config
-
     # progress bar
     unless @config.log
       @global.bar = progress(1)
@@ -191,7 +189,6 @@ module.exports =
     whitelisted = (type, id) =>
       wl = @config?.whitelist
       if wl
-        console.log id, type
         if _.isArray wl[type]
           id in wl[type]
         else if _.isNumber wl[type]
@@ -214,8 +211,6 @@ module.exports =
             url = url.replace pattern, id
 
           wld = whitelisted res, id
-
-          console.log wld
 
           if wld
             urls.push {
