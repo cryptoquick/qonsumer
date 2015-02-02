@@ -38,13 +38,26 @@ module.exports =
     results: {}
     trees: {}
 
-  init: (program) ->
+  init: (program, grunt_cb, grunt) ->
     @global.time_started = new Date()
 
     # configure
-    @config.file = program.config or program.args[0] or @config.file
-    @config.dir = program.results or program.args[1] or @config.dir
-    @config.log = !!program.verbose
+    if grunt_cb
+      grunt_config = program
+
+      @config.file = grunt_config.files[0].src[0]
+      @config.dir = grunt_config.files[0].dest
+      @config.log = grunt_config.options.log
+      @config.whitelist = grunt_config.options.whitelist
+
+      @grunt_cb = grunt_cb
+
+    else
+      @config.file = program.config or program.args[0] or @config.file
+      @config.dir = program.results or program.args[1] or @config.dir
+      @config.log = !!program.verbose
+
+    console.log @config
 
     # progress bar
     unless @config.log
@@ -89,6 +102,9 @@ module.exports =
 
     if @doc.options?.max_retries
       @config.retries = @doc.options.max_retries
+
+    if @doc.options?.whitelist
+      @config.whitelist = @doc.options.whitelist
 
     auth_tasks = []
     for host_name, host of @doc.hosts
@@ -136,7 +152,7 @@ module.exports =
                   console.error print.error 'AUTH ERROR', err if log
                   inner_cb err, null
             )
-      )
+        )
 
     if auth_tasks.length
       async.parallelLimit auth_tasks, @config.max, (err, results) =>
@@ -172,6 +188,19 @@ module.exports =
     deps = res.deps
     name = res.name
 
+    whitelisted = (type, id) =>
+      wl = @config?.whitelist
+      if wl
+        console.log id, type
+        if _.isArray wl[type]
+          id in wl[type]
+        else if _.isNumber wl[type]
+          id is wl[type]
+        else
+          yes
+      else
+        yes
+
     unless head
       urls = []
       traverse(tree).forEach (val) ->
@@ -183,11 +212,17 @@ module.exports =
             res = _.deepGet tree, path.concat 'res'
             pattern = deps[res].pattern
             url = url.replace pattern, id
-          urls.push {
-            id
-            url
-            name
-          }
+
+          wld = whitelisted res, id
+
+          console.log wld
+
+          if wld
+            urls.push {
+              id
+              url
+              name
+            }
 
         val
       _.uniq urls, 'url'
@@ -394,6 +429,8 @@ module.exports =
       console.log "qonsumer took #{duration} to run." if @config.log
 
       @global.bar.op() unless @config.log
+
+      @grunt_cb() if @grunt_cb
 
       @post_process()
     , @config.max)

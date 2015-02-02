@@ -60,7 +60,8 @@ host config properties will override global properties.
 
 an `env` property can be optionally defined globally. it will reach into the shell's environment and assign the values held by those variable names to the properties for use in other parts of the config, such as the host auth options.
 
-```env:
+```yaml
+env:
   auth_email: API_EMAIL
   auth_password: API_PASSWORD
 ```
@@ -130,8 +131,31 @@ extract:
   comments: .comments .timestamp
 ```
 
+# whitelisting
+
+ids can be whitelisted by resource type. this is done by providing a whitelist property on either the config or the grunt task.
+
+# grunt task
+
+this package can also be installed locally, and run with a grunt configuration, like this:
+
+```yaml
+qonsumer:
+  test:
+    options:
+      whitelist:
+        articles: [1, 3]
+      log: yes
+    files: [
+      src: 'qonsumer.yaml'
+      dest: 'results/data.json'
+    ]
+```
+
+a `qonsumer.yaml` is still required to configure resource descriptions.
+
 # disclaimer
 
 as a disclaimer, please don't use this for nefarious purposes. be kind to us API developers. qonsumer is meant to be a tool primarily for testing, and also to get around limitations of certain programs, such as static site generators.
 
-qonsumer is copyright [Hunter Trujillo](https://twitter.com/cryptoquick), 2014. built with friendship and magic at [PlaceWise Media](https://github.com/PlacewiseMedia).
+qonsumer is copyright [Hunter Trujillo](https://twitter.com/cryptoquick), 2014-2015. built with friendship and magic at [PlaceWise Media](https://github.com/PlacewiseMedia).

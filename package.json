@@ -1,7 +1,7 @@
 {
   "name": "qonsumer",
-  "version": "0.4.4",
-  "description": "configurable API crawler, for scraping to static files",
+  "version": "0.5.0",
+  "description": "configurable API crawler for scraping feeds to static files",
   "main": "lib/index.js",
   "author": "Hunter Trujillo <cryptoquick@gmail.com>",
   "license": "MIT",
@@ -20,7 +20,8 @@
     "json",
     "consumer",
     "command",
-    "static"
+    "static",
+    "grunt"
   ],
   "dependencies": {
     "JSONSelect": "^0.4.0",
@@ -50,7 +51,7 @@
     "grunt": "^0.4.5"
   },
   "scripts": {
-    "prepublish": "grunt build"
+    "prepublish": "grunt"
   },
   "preferGlobal": "true",
   "bin": {

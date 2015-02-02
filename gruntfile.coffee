@@ -29,7 +29,7 @@ module.exports = (grunt) ->
     watch:
       watch:
         files: ['src/*']
-        tasks: ['build']
+        tasks: ['default']
         options:
           spawn: no
           atBegin: yes
@@ -44,14 +44,27 @@ module.exports = (grunt) ->
           src: 'test/live/endpoints.yaml'
         ]
 
+    qonsumer:
+      test:
+        options:
+          whitelist:
+            articles: [1, 3]
+          log: yes
+        files: [
+          src: 'qonsumer.yaml'
+          dest: 'results/data.json'
+        ]
+
   grunt.initConfig config
 
-  grunt.loadNpmTasks task for task of config.pkg.devDependencies when task.indexOf 'grunt-' >= 0
+  grunt.loadNpmTasks task for task of config.pkg.devDependencies when task.indexOf 'grunt-' is 0
 
-  grunt.registerTask 'build', [
+  grunt.loadTasks 'tasks'
+
+  grunt.registerTask 'default', [
     'coffee'
     'file_append'
     'chmod'
   ]
 
-  grunt.registerTask 'server', ['stubby']
+  grunt.registerTask 'test', ['stubby']
