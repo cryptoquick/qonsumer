@@ -1,5 +1,5 @@
 fs = require 'fs'
-path = require 'path'
+node_path = require 'path'
 mkdirp = require 'mkdirp'
 yaml = require 'js-yaml'
 select = require 'JSONSelect'
@@ -63,7 +63,7 @@ module.exports =
 
     # TODO detect if files are present
     if @config.file and @config.dir
-      mkdirp path.dirname(@config.dir), (err) =>
+      mkdirp node_path.dirname(@config.dir), (err) =>
         if err
           console.error print.error err if @config.log
         else

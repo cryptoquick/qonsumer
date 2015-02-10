@@ -139,7 +139,7 @@ ids can be whitelisted by resource type. this is done by providing a whitelist p
 
 this package can also be installed locally, and run with a grunt configuration, like this:
 
-```yaml
+```coffeescript
 qonsumer:
   test:
     options:
@@ -158,4 +158,6 @@ a `qonsumer.yaml` is still required to configure resource descriptions.
 
 as a disclaimer, please don't use this for nefarious purposes. be kind to us API developers. qonsumer is meant to be a tool primarily for testing, and also to get around limitations of certain programs, such as static site generators.
 
-qonsumer is copyright [Hunter Trujillo](https://twitter.com/cryptoquick), 2014-2015. built with friendship and magic at [PlaceWise Media](https://github.com/PlacewiseMedia).
+qonsumer is copyright [Hunter Trujillo](https://twitter.com/cryptoquick), 2014-2015
+
+built with friendship and magic at [PlaceWise Media](https://github.com/PlacewiseMedia)
