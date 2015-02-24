@@ -27,7 +27,7 @@
     "JSONSelect": "^0.4.0",
     "async": "git://github.com/vergenzt/async.git#d2e3b9c3a8b323ed102a8df65c8b103996f7ed31",
     "awesome-progress": "0.0.53",
-    "chalk": "^0.5.1",
+    "chalk": "^1.0.0",
     "commander": "^2.6.0",
     "js-yaml": "^3.2.5",
     "lodash": "^2.4.1",
